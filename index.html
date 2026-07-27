@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>イジンデン一人回し</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <nav class="tabs" id="mainTabs">
+    <button class="tab-btn is-active" data-tab="builder">デッキ構築</button>
+    <button class="tab-btn" data-tab="solo">ソロプレイ</button>
+  </nav>
+</header>
+<button class="header-handle" id="headerHandle" title="メニューを表示">&#9661;</button>
+
+<main id="app">
+
+  <!-- ============ DECK BUILDER ============ -->
+  <section id="tab-builder" class="tab-panel is-active">
+    <div class="builder-layout">
+
+      <!-- Filters -->
+      <aside class="panel filters-panel">
+        <h2 class="panel-title">絞り込み</h2>
+
+        <div class="field">
+          <label>カード名 / テキスト検索</label>
+          <input type="text" id="fSearch" placeholder="例: 剣術, 破壊されない">
+        </div>
+
+        <div class="field">
+          <label>種類</label>
+          <div class="chip-group" id="fType">
+            <button class="chip-toggle is-active" data-val="イジン">イジン</button>
+            <button class="chip-toggle is-active" data-val="マホウ">マホウ</button>
+            <button class="chip-toggle is-active" data-val="ハイケイ">ハイケイ</button>
+            <button class="chip-toggle is-active" data-val="マリョク">マリョク</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>色</label>
+          <div class="chip-group" id="fColor"></div>
+        </div>
+
+        <div class="field two-col">
+          <div>
+            <label>レベル 最小</label>
+            <input type="number" id="fLevelMin" min="0" max="12" placeholder="0">
+          </div>
+          <div>
+            <label>レベル 最大</label>
+            <input type="number" id="fLevelMax" min="0" max="12" placeholder="12">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>収録弾</label>
+          <div class="chip-group" id="fSet"></div>
+        </div>
+
+        <div class="field">
+          <label>レアリティ</label>
+          <div class="chip-group" id="fRarity"></div>
+        </div>
+
+        <button class="btn btn-ghost btn-block" id="btnResetFilters">絞り込みをリセット</button>
+      </aside>
+
+      <!-- Card list -->
+      <section class="panel list-panel">
+        <div class="list-header">
+          <h2 class="panel-title" id="listCount">カード一覧</h2>
+          <select id="sortSelect">
+            <option value="set_asc">収録弾順（昇順）</option>
+            <option value="set_desc">収録弾順（降順）</option>
+            <option value="level_asc">レベル順（昇順）</option>
+            <option value="level_desc">レベル順（降順）</option>
+            <option value="power_asc">パワー順（昇順）</option>
+            <option value="power_desc">パワー順（降順）</option>
+          </select>
+        </div>
+        <div class="card-grid" id="cardGrid"></div>
+      </section>
+
+      <!-- Deck panel -->
+      <aside class="panel deck-panel">
+        <h2 class="panel-title">構築中デッキ</h2>
+        <div class="deck-status" id="deckStatus"></div>
+        <div class="deck-list" id="deckList"></div>
+
+        <div class="deck-actions">
+          <input type="text" id="deckNameInput" placeholder="デッキ名">
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btnSaveDeck">保存</button>
+            <button class="btn btn-ghost" id="btnNewDeck">新規</button>
+          </div>
+          <div class="field">
+            <label>保存済みデッキ</label>
+            <div class="btn-row">
+              <select id="savedDeckSelect"></select>
+              <button class="btn btn-ghost" id="btnLoadDeck">読込</button>
+              <button class="btn btn-danger" id="btnDeleteDeck">削除</button>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="btnExportDeck">テキスト書出</button>
+            <button class="btn btn-ghost" id="btnImportDeck">テキスト読込</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============ SOLO PLAY ============ -->
+  <section id="tab-solo" class="tab-panel">
+
+    <!-- Setup screen -->
+    <div class="panel setup-panel" id="setupPanel">
+      <h2 class="panel-title">対戦準備</h2>
+      <div class="field">
+        <label>使用するデッキ</label>
+        <select id="soloDeckSelect"></select>
+      </div>
+      <div class="field">
+        <label>先攻 / 後攻</label>
+        <div class="chip-group" id="fFirst">
+          <button class="chip-toggle is-active" data-val="first">先攻</button>
+          <button class="chip-toggle" data-val="second">後攻</button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="btnStartGame">対戦開始（シャッフルして準備）</button>
+      <p class="hint-text">山札をシャッフルし、手札6枚とガーディアン4枚を自動で準備します。カードの効果適用はご自身でルールテキストを確認しながら手動で行ってください。</p>
+    </div>
+
+    <!-- Board -->
+    <div class="board" id="boardPanel" style="display:none;">
+
+      <!-- Status strip: phase | log (3 lines) | turn controls -->
+      <div class="status-strip">
+        <div class="phase-box">
+          <span class="phase-turn" id="stampTurn">第1ターン</span>
+          <span class="phase-name" id="stampPhase">ドロー</span>
+        </div>
+        <div class="log-box">
+          <div class="log-lines" id="logLines"></div>
+        </div>
+        <div class="turn-controls">
+          <button class="btn-mini btn-help" id="btnHelp" title="遊び方">遊び方</button>
+          <button class="btn-mini" id="btnUndo" title="一手戻す">&#8629;</button>
+          <button class="btn-mini btn-mini-primary" id="btnEndTurn">ターンエンド</button>
+          <button class="btn-mini btn-mini-danger" id="btnEndGame">終了</button>
+        </div>
+      </div>
+
+      <div class="board-rows">
+
+        <!-- Row 1: deck | field -->
+        <div class="board-row">
+          <div class="zone-box zone-slot" id="deckSlot">
+            <span class="zone-caption">山札</span>
+            <div class="slot-frame">
+              <div class="mini-card is-facedown" id="deckTopCard"></div>
+              <span class="slot-count" id="deckCount">0</span>
+            </div>
+            <button class="btn-slot-sub" id="btnDeckMenu" title="山札の操作（サーチ／シャッフル）">&#8943;</button>
+          </div>
+          <div class="zone-box zone-spread">
+            <span class="zone-caption">戦場</span>
+            <div class="cards-row" id="zoneField"></div>
+          </div>
+        </div>
+
+        <!-- Row 2: graveyard | mana zone (separate frames) -->
+        <div class="board-row">
+          <div class="zone-box zone-slot" id="graveSlot">
+            <span class="zone-caption">墓地</span>
+            <div class="slot-frame is-empty">
+              <span class="slot-empty-label">墓地</span>
+              <span class="slot-count" id="graveCount">0</span>
+            </div>
+            <div class="grave-history-popover" id="gravePopover"></div>
+          </div>
+          <div class="zone-box zone-spread">
+            <span class="zone-caption">魔力ゾーン</span>
+            <span class="mana-summary-inline" id="manaSummary"></span>
+            <div class="cards-row" id="zoneMana"></div>
+          </div>
+        </div>
+
+        <!-- Row 3: hand (framed) | action buttons (no frame) -->
+        <div class="board-row">
+          <div class="zone-box zone-spread" id="handBox">
+            <span class="zone-caption">手札</span>
+            <button class="zone-menu-btn" id="btnHandMenu" title="手札の操作">&#8943;</button>
+            <div class="cards-row" id="zoneHand"></div>
+          </div>
+          <div class="main-actions">
+            <div class="act-group">
+              <button class="act-square" id="btnActionMana">マリョク<br>配置</button>
+              <div class="act-meter">
+                <button class="adj-btn" data-adjust="manaPlace" data-delta="-1">−</button>
+                <span class="act-count" id="cntManaAction">1</span>
+                <button class="adj-btn" data-adjust="manaPlace" data-delta="1">＋</button>
+              </div>
+            </div>
+            <div class="act-group">
+              <button class="act-square" id="btnActionSummon">イジン<br>召喚</button>
+              <div class="act-meter">
+                <button class="adj-btn" data-adjust="summon" data-delta="-1">−</button>
+                <span class="act-count" id="cntSummonAction">1</span>
+                <button class="adj-btn" data-adjust="summon" data-delta="1">＋</button>
+              </div>
+            </div>
+            <div class="act-group">
+              <button class="act-square" id="btnActionBattle">バトル</button>
+              <div class="act-meter">
+                <button class="adj-btn" data-adjust="battle" data-delta="-1">−</button>
+                <span class="act-count" id="cntBattleAction">1</span>
+                <button class="adj-btn" data-adjust="battle" data-delta="1">＋</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Centre-screen prompt used for every guided step (dims the rest of the board) -->
+<div class="stage-dim" id="stageDim"></div>
+<div class="stage-prompt" id="stagePrompt">
+  <div class="stage-message" id="stageMessage"></div>
+  <div class="stage-actions" id="stageActions"></div>
+  <div class="stage-hint">まわりの暗い部分をクリックすると取り消します</div>
+</div>
+
+
+<!-- Card detail modal (also used as the solo-play card context menu) -->
+<div class="modal-overlay" id="cardModal">
+  <div class="modal-card" id="cardModalContent"></div>
+</div>
+
+<script src="cards-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

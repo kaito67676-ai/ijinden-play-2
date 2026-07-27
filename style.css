@@ -1,0 +1,560 @@
+/* ===== Design tokens ===== */
+:root{
+  --bg-deep: #12151d;
+  --bg-panel: #1b212e;
+  --bg-panel-raise: #232a3a;
+  --line: #333c50;
+  --paper: #ede6d6;
+  --paper-dim: #ddd3bd;
+  --ink: #2a2118;
+  --ink-soft: #5a5142;
+  --gold: #c9a227;
+  --gold-bright: #e6c869;
+  --vermilion: #b8402c;
+  --vermilion-bright: #d9583f;
+  --green-ok: #4f8f5f;
+
+  --c-red: #b6423a;
+  --c-blue: #2f6ea6;
+  --c-green: #4a7f4f;
+  --c-yellow: #c99a2e;
+  --c-purple: #7457a0;
+  --c-none: #7d8394;
+
+  --font-display: "Shippori Mincho", serif;
+  --font-body: "Zen Kaku Gothic New", sans-serif;
+
+  --radius: 10px;
+}
+
+*{ box-sizing: border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  background: var(--bg-deep);
+  color: var(--paper);
+  font-family: var(--font-body);
+  line-height:1.5;
+}
+
+button, input, select{ font-family: inherit; }
+
+/* ===== Header ===== */
+.app-header{
+  display:flex; align-items:center; justify-content:flex-end; gap:16px;
+  padding: 8px 20px;
+  background: linear-gradient(180deg, #171d29 0%, #12151d 100%);
+  border-bottom: 1px solid var(--line);
+}
+/* On the solo tab the header is tucked away; the ▽ tab at the top-right reveals it. */
+body.solo-view .app-header{
+  position:fixed; top:0; left:0; right:0; z-index:70;
+  transform: translateY(-100%); transition: transform .18s ease;
+}
+body.solo-view .app-header:hover,
+body.solo-view.header-peek .app-header{ transform: translateY(0); }
+.header-handle{
+  display:none; position:fixed; top:0; right:14px; z-index:71;
+  width:40px; height:20px; border:none; cursor:pointer;
+  background: var(--bg-panel-raise); border:1px solid var(--line); border-top:none;
+  border-radius:0 0 8px 8px; color:var(--gold-bright); font-size:11px; line-height:1;
+  padding:0;
+}
+body.solo-view .header-handle{ display:block; }
+.header-handle:hover{ background: var(--gold); color:#1a1508; }
+.tabs{ display:flex; gap:6px; }
+.tab-btn{
+  background:transparent; border:1px solid var(--line); color:var(--paper-dim);
+  padding:9px 18px; border-radius: 999px; cursor:pointer; font-size:14px; font-weight:700;
+  transition: all .15s ease;
+}
+.tab-btn.is-active{ background: var(--gold); border-color: var(--gold); color:#1a1508; }
+.tab-btn:hover:not(.is-active){ border-color: var(--gold); color: var(--gold-bright); }
+
+/* ===== Layout ===== */
+main{ padding:18px; max-width:1500px; margin:0 auto; }
+.tab-panel{ display:none; }
+.tab-panel.is-active{ display:block; }
+
+.panel{
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding:16px;
+}
+.panel-title{
+  font-family: var(--font-display); font-weight:700; font-size:16px;
+  color: var(--gold-bright); margin:0 0 12px; letter-spacing:.02em;
+  border-bottom:1px solid var(--line); padding-bottom:8px;
+}
+
+.builder-layout{
+  display:grid;
+  grid-template-columns: 250px 1fr 300px;
+  gap:16px;
+  align-items:start;
+}
+@media (max-width: 1100px){
+  .builder-layout{ grid-template-columns: 1fr; }
+}
+
+/* ===== Fields / filters ===== */
+.field{ margin-bottom:14px; }
+.field label{ display:block; font-size:12px; color:#9aa1b5; margin-bottom:5px; font-weight:700; }
+.field.two-col{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.field input[type=text], .field input[type=number], select, #savedDeckSelect, #soloDeckSelect{
+  width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--line);
+  background: var(--bg-panel-raise); color: var(--paper); font-size:13px;
+}
+.chip-group{ display:flex; flex-wrap:wrap; gap:6px; }
+.chip-toggle{
+  border:1px solid var(--line); background:var(--bg-panel-raise); color:#9aa1b5;
+  border-radius:999px; padding:5px 12px; font-size:12px; cursor:pointer; font-weight:700;
+}
+.chip-toggle.is-active{ background: var(--gold); border-color:var(--gold); color:#1a1508; }
+.btn-block{ width:100%; }
+
+/* ===== Buttons ===== */
+.btn{
+  border:none; border-radius:8px; padding:9px 14px; font-size:13px; font-weight:700;
+  cursor:pointer; transition: filter .15s ease;
+}
+.btn:hover{ filter:brightness(1.1); }
+.btn-primary{ background: var(--gold); color:#1a1508; }
+.btn-ghost{ background: var(--bg-panel-raise); color: var(--paper); border:1px solid var(--line); }
+.btn-danger{ background: var(--vermilion); color:#fff5e8; }
+.btn-row{ display:flex; gap:8px; margin-top:6px; }
+.btn-row select{ flex:1; }
+
+/* ===== Card grid / list ===== */
+.list-panel{ min-height: 500px; }
+.list-header{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.list-header select{ width:auto; }
+.card-grid{
+  display:grid; grid-template-columns: repeat(auto-fill, minmax(190px,1fr));
+  gap:10px; margin-top:10px; max-height:74vh; overflow-y:auto; padding-right:4px;
+}
+.card-tile{
+  background: var(--paper); color: var(--ink); border-radius:8px; padding:10px;
+  cursor:pointer; border:2px solid transparent; position:relative;
+  display:flex; flex-direction:column; gap:6px;
+}
+.card-tile:hover{ border-color: var(--gold); }
+.card-header-row{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.card-type-badge{
+  width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+  font-family: var(--font-display); font-weight:700; font-size:12px; color:#fff; flex-shrink:0;
+}
+.card-type-badge.badge-square{ border-radius:6px; }
+.level-badge{ background: var(--ink); }
+.card-cost-pips{ font-size:13px; letter-spacing:1px; color: var(--ink); flex-shrink:0; }
+.card-name{ font-weight:700; font-size:13.5px; line-height:1.25; flex:1; }
+.card-rule-text{
+  font-size:11px; line-height:1.4; color: var(--ink-soft); white-space:pre-wrap;
+  border-radius:5px; padding:6px 7px;
+}
+.card-rule-text strong{ color: var(--ink); font-weight:800; }
+.card-trait{ font-size:9px; color:var(--ink-soft); margin-top:-4px; letter-spacing:.02em; }
+.card-sub-row{ display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:auto; }
+.card-source{ font-size:11px; color:var(--ink-soft); white-space:nowrap; }
+.card-legacy{ font-size:11px; color:var(--ink-soft); }
+.card-tile-footer{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.card-power{ font-family: var(--font-display); font-weight:800; font-size:16px; }
+.card-tile-footer-right{ display:flex; align-items:center; gap:6px; margin-left:auto; }
+.count-badge{
+  background: var(--paper-dim); color:var(--ink); border:1px solid var(--ink-soft); border-radius:999px;
+  min-width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:800; padding:0 6px;
+}
+.add-btn{
+  background: var(--ink); color:var(--paper); border:none; border-radius:6px; padding:5px 10px;
+  font-size:12px; font-weight:700; cursor:pointer;
+}
+.add-btn:hover{ background:var(--vermilion); }
+
+/* ===== Deck panel ===== */
+.deck-panel{ position:sticky; top:12px; }
+.deck-status{ font-size:13px; margin-bottom:10px; padding:8px 10px; border-radius:6px; background: var(--bg-panel-raise); }
+.deck-status.ok{ color: var(--green-ok); }
+.deck-status.warn{ color: var(--vermilion-bright); }
+.deck-list{ max-height:38vh; overflow-y:auto; margin-bottom:10px; }
+.deck-group-heading{
+  font-size:10.5px; font-weight:800; color: var(--gold-bright); text-transform:uppercase;
+  letter-spacing:.06em; margin:10px 0 3px; padding-top:4px; border-top:1px solid var(--line);
+}
+.deck-group-heading:first-child{ margin-top:0; border-top:none; padding-top:0; }
+.deck-row{
+  display:flex; align-items:center; gap:8px; padding:5px 4px; font-size:12.5px;
+  border-bottom:1px dashed var(--line);
+}
+.deck-row .dr-name{ flex:1; cursor:pointer; }
+.deck-row .dr-name:hover{ color: var(--gold-bright); }
+.deck-row button{
+  width:22px; height:22px; border-radius:50%; border:1px solid var(--line); background:var(--bg-panel-raise);
+  color:var(--paper); cursor:pointer; font-size:13px; line-height:1;
+}
+.deck-actions input{ width:100%; padding:8px; border-radius:6px; border:1px solid var(--line); background: var(--bg-panel-raise); color:var(--paper); margin-bottom:6px; }
+
+/* ===== Solo play board ===== */
+.setup-panel{ max-width:520px; margin:20px auto; text-align:center; }
+.hint-text{ font-size:12px; color:#9aa1b5; margin-top:12px; }
+
+/* Card is 1 wide : 1.4 tall. */
+:root{
+  --card-w: 104px; --card-h: 146px;
+  --act-size: 116px;
+  --slot-box-w: calc(var(--card-w) + 22px);   /* card + zone-box padding + border */
+}
+
+/* --- status strip: phase | log (3 lines) | turn controls --- */
+.status-strip{ display:flex; align-items:stretch; gap:10px; margin-bottom:8px; }
+/* Same width as the 山札 / 墓地 boxes below, so their left and right edges line up */
+.phase-box{
+  flex:0 0 var(--slot-box-w); display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background: var(--bg-panel); border:1px solid var(--line); border-radius:8px; padding:6px;
+}
+.phase-turn{ font-size:10px; color:#9aa1b5; }
+.phase-name{ font-family:var(--font-display); font-weight:800; font-size:15px; color: var(--gold-bright); }
+/* Log right edge sits around the middle of the screen */
+.log-box{
+  flex:0 1 auto; width: calc(50% - var(--slot-box-w) - 8px); min-width:0;
+  background: var(--bg-panel); border:1px solid var(--line); border-radius:8px;
+  padding:7px 10px 9px; overflow:hidden;
+}
+/* Plain block flow: flex would squash the rows to fit and break scrolling. */
+.log-lines{
+  display:block;
+  height:calc(4 * 1.6em); overflow-y:auto; overflow-x:hidden;
+  font-size:11.5px; color:#9aa1b5; line-height:1.6;
+  scrollbar-width:thin; scrollbar-color: var(--line) transparent;
+}
+.log-lines::-webkit-scrollbar{ width:7px; }
+.log-lines::-webkit-scrollbar-thumb{ background: var(--line); border-radius:4px; }
+
+/* One scrollbar treatment for the whole app */
+*{ scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+*::-webkit-scrollbar{ width:9px; height:9px; }
+*::-webkit-scrollbar-track{ background: transparent; }
+*::-webkit-scrollbar-thumb{ background: var(--line); border-radius:5px; }
+*::-webkit-scrollbar-thumb:hover{ background: #46516b; }
+*::-webkit-scrollbar-corner{ background: transparent; }
+.log-lines div{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; height:1.6em; }
+.log-lines .log-latest{ color: var(--paper); }
+/* pushed to the far right of the freed space */
+.turn-controls{ flex:0 0 auto; margin-left:auto; display:flex; align-items:center; gap:8px; }
+.turn-controls .btn-help{ margin-right:14px; }
+.btn-mini{
+  background: var(--bg-panel-raise); border:1px solid var(--line); color:var(--paper);
+  border-radius:8px; padding:12px 20px; font-size:15px; font-weight:700; cursor:pointer; line-height:1.1;
+}
+.btn-mini:hover:not(:disabled){ border-color: var(--gold); }
+.btn-mini:disabled{ opacity:.35; cursor:not-allowed; }
+.btn-mini-primary{ background: var(--gold); border-color:var(--gold); color:#1a1508; }
+.btn-mini-danger{ background:transparent; border-color: var(--vermilion); color: var(--vermilion-bright); }
+
+/* --- rows hold independently framed zone boxes --- */
+.board{ -webkit-user-select:none; user-select:none; }
+.board-rows{ display:flex; flex-direction:column; gap:8px; }
+.board-row{ display:flex; align-items:flex-end; gap:8px; }
+
+/* Each zone carries its own frame, so the hand frame wraps only the hand and the
+   graveyard frame is visibly separate from the mana zone. */
+.zone-box{
+  position:relative; background: var(--bg-panel); border:1px solid var(--line);
+  border-radius: var(--radius); padding:16px 10px 8px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+}
+.zone-slot{ flex:0 0 var(--slot-box-w); }
+/* An empty 戦場 / 魔力ゾーン keeps the same frame as a populated one */
+.zone-spread{ flex:1; min-width:0; min-height: calc(var(--card-h) + 24px); }
+.zone-caption{
+  position:absolute; top:3px; left:10px;
+  font-size:9.5px; color:#7d8394; font-family:var(--font-display); letter-spacing:.04em;
+}
+/* small ⋯ menu next to a zone caption */
+.zone-menu-btn{
+  position:absolute; top:1px; left:38px; z-index:3;
+  background:transparent; border:none; color:#7d8394; cursor:pointer;
+  font-size:13px; line-height:1; padding:1px 5px; border-radius:4px;
+}
+.zone-menu-btn:hover{ color: var(--gold-bright); background: var(--bg-panel-raise); }
+
+/* dropping onto the deck: which half you are over decides top or bottom */
+#deckSlot.half-top .slot-frame{ box-shadow: 0 -4px 0 0 var(--gold-bright) inset, 0 0 12px rgba(230,200,105,.5); }
+#deckSlot.half-bottom .slot-frame{ box-shadow: 0 4px 0 0 var(--gold-bright) inset, 0 0 12px rgba(230,200,105,.5); }
+#deckSlot.half-top::after,
+#deckSlot.half-bottom::after{
+  content:'山札の上へ'; position:absolute; left:50%; transform:translateX(-50%);
+  background: var(--gold); color:#1a1508; font-size:10px; font-weight:800;
+  padding:2px 8px; border-radius:4px; white-space:nowrap; z-index:5; pointer-events:none;
+}
+#deckSlot.half-top::after{ top:-8px; }
+#deckSlot.half-bottom::after{ content:'山札の下へ'; bottom:-8px; }
+
+/* Card strip inside a zone — fills the box so the drop target is the full height */
+.cards-row{
+  flex:1; align-self:stretch; display:flex; justify-content:center; align-items:center;
+  gap:6px; min-width:0; overflow-x:auto; overflow-y:visible; padding:0 2px;
+}
+
+/* single-card slots (deck / graveyard) */
+.slot-frame{ width: var(--card-w); height: var(--card-h); position:relative; border-radius:6px; }
+.slot-frame.is-empty{
+  border:2px dashed var(--line); background: rgba(255,255,255,.02);
+  display:flex; align-items:center; justify-content:center;
+}
+.slot-empty-label{ font-size:12px; color:#7d8394; font-family:var(--font-display); }
+.slot-count{
+  position:absolute; bottom:-5px; right:-5px; background: var(--gold); color:#1a1508;
+  font-weight:800; font-size:11px; border-radius:999px; min-width:21px; height:21px;
+  display:flex; align-items:center; justify-content:center; padding:0 5px;
+  border:2px solid var(--bg-panel); z-index:2;
+}
+#graveSlot, #deckSlot .slot-frame{ cursor:pointer; }
+#deckSlot .slot-frame:hover .mini-card{ border-color: var(--gold); }
+#graveSlot .slot-count{ background: var(--vermilion); color:#fff; }
+.btn-slot-sub{
+  width: var(--card-w); padding:5px 0; border-radius:6px; cursor:pointer; font-size:13px; font-weight:800;
+  background: var(--bg-panel-raise); color:var(--paper); border:1px solid var(--line);
+}
+.btn-slot-sub:hover{ border-color: var(--gold); }
+/* While dragging, the deck's ⋯ button must not light up or steal the drop:
+   the whole deck box is the target, and this button sits in its lower half
+   (= 山札の下に置く). */
+body.is-dragging .btn-slot-sub{ pointer-events:none; }
+body.is-dragging .btn-slot-sub:hover{ border-color: var(--line); background: var(--bg-panel-raise); }
+body.is-dragging .zone-menu-btn{ pointer-events:none; }
+body.is-dragging .zone-menu-btn:hover{ color:#7d8394; background:transparent; }
+
+.mana-summary-inline{
+  position:absolute; top:3px; right:10px; font-size:10px; color:#9aa1b5; pointer-events:none;
+}
+
+.grave-history-popover{
+  display:none; position:absolute; z-index:40; top:100%; left:0; margin-top:6px;
+  background: var(--bg-panel-raise); border:1px solid var(--gold); border-radius:8px; padding:8px;
+  flex-wrap:wrap; gap:6px; width:360px; max-height:250px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,.5);
+}
+.grave-history-popover.is-open{ display:flex; }
+
+/* --- main phase action buttons: large square, meter underneath, no frame around them --- */
+.main-actions{ flex:0 0 auto; display:flex; gap:10px; align-items:flex-start; padding-top:8px; }
+.act-group{ display:flex; flex-direction:column; align-items:center; gap:5px; }
+.act-square{
+  width: var(--act-size); height: var(--act-size); border-radius:14px; border:1px solid var(--line);
+  background: var(--bg-panel-raise); color:var(--paper); cursor:pointer;
+  font-size:16px; font-weight:700; line-height:1.35; padding:0;
+}
+.act-square:hover:not(:disabled){ border-color: var(--gold); color: var(--gold-bright); }
+.act-square:disabled{ opacity:.35; cursor:not-allowed; background:#171b25; color:#6b7183; }
+.act-meter{ display:flex; align-items:center; gap:4px; }
+.act-count{
+  font-weight:800; color: var(--gold-bright); font-family:var(--font-display);
+  font-size:17px; min-width:18px; text-align:center;
+}
+.adj-btn{
+  width:20px; height:20px; border-radius:50%; border:1px solid var(--line); background:var(--bg-panel-raise);
+  color:var(--paper); cursor:pointer; font-size:11px; line-height:1; padding:0;
+}
+.adj-btn:hover{ border-color: var(--gold); }
+
+/* --- centre-screen prompt (replaces the old bottom banner) --- */
+.stage-dim{
+  display:none; position:fixed; inset:0; background: rgba(8,10,14,.38); z-index:60;
+  cursor:pointer;
+}
+.stage-dim.is-open{ display:block; }
+.stage-prompt{
+  display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  z-index:62; background: var(--bg-panel-raise); border:2px solid var(--gold);
+  border-radius:12px; padding:20px 26px; box-shadow:0 14px 40px rgba(0,0,0,.6);
+  flex-direction:column; align-items:center; gap:14px; max-width:min(560px, 92vw);
+}
+.stage-prompt.is-open{ display:flex; }
+.stage-message{
+  font-size:19px; font-weight:700; color: var(--gold-bright); text-align:center; line-height:1.5;
+  white-space:pre-line;   /* 注意書きを改行して並べる */
+}
+.stage-actions{ display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+.stage-btn{
+  min-width:96px; padding:12px 22px; font-size:17px; font-weight:800; border-radius:8px;
+  border:none; cursor:pointer; background: var(--gold); color:#1a1508;
+}
+.stage-btn:hover:not(:disabled){ filter:brightness(1.1); }
+.stage-btn:disabled{ background:#3a3f4d; color:#7d8394; cursor:not-allowed; }
+.stage-btn-sub{ background: var(--bg-panel); color: var(--paper); border:1px solid var(--line); }
+.stage-hint{ font-size:11px; color:#8a90a3; }
+
+/* How-to-play panel (shares the dimmed centre-stage treatment) */
+.help-panel{ max-width:min(680px, 92vw); max-height:78vh; overflow-y:auto; text-align:left; }
+.help-panel h3{
+  font-family:var(--font-display); font-size:15px; color:var(--gold-bright);
+  margin:16px 0 6px; padding-bottom:4px; border-bottom:1px solid var(--line);
+}
+.help-panel h3:first-child{ margin-top:0; }
+.help-table{ width:100%; border-collapse:collapse; font-size:13px; }
+.help-table td{ padding:5px 8px; vertical-align:top; border-bottom:1px dashed var(--line); }
+.help-table td:first-child{ white-space:nowrap; color:var(--gold-bright); font-weight:700; width:38%; }
+.help-note{ font-size:12px; color:#9aa1b5; margin-top:10px; line-height:1.6; }
+/* selectable cards stay bright and clickable above the dimming layer */
+body.is-staged .mini-card.is-selectable,
+body.is-staged .mini-card.is-selected,
+body.is-staged .mini-card.is-pickable{ z-index:61; }
+/* choosable but not the "correct" choice: reachable, just not highlighted */
+.mini-card.is-pickable{ position:relative; }
+/* the deck-search / graveyard list must sit above the dimming layer too */
+body.is-staged .grave-history-popover.is-open{ z-index:61; }
+/* during the draw step the deck pile is the thing to click, and the turn
+   controls stay reachable so you can still undo or quit */
+body.is-staged .turn-controls{ position:relative; z-index:61; }
+#deckSlot.is-draw-target{ position:relative; z-index:61; }
+#deckSlot.is-draw-target .mini-card{
+  box-shadow: 0 0 0 3px var(--gold), 0 0 18px 4px var(--gold-bright);
+}
+
+/* --- card visuals (1 wide : 1.4 tall) --- */
+.mini-card{
+  width: var(--card-w); height: var(--card-h); background: var(--paper); color:var(--ink);
+  border-radius:7px; padding:4px; font-size:11px; position:relative; cursor:pointer;
+  border:2px solid transparent; flex-shrink:0; overflow:hidden;
+}
+/* Card back: plain, no symbol or text */
+.mini-card.is-facedown{
+  background: linear-gradient(135deg, #2b2540 0%, #46396e 50%, #2b2540 100%);
+  border-color:#5c4b8f;
+}
+/* Rotated 90°: the layout box stays upright, so reserve the extra width
+   ((card-h - card-w) / 2 on each side) to stop it covering its neighbours. */
+/* Rotation is animated; the same easing as the card flights. */
+.mini-card{ transition: transform .34s cubic-bezier(.22,.68,.28,1); }
+.mini-card.is-tapped{
+  transform: rotate(90deg);
+  margin-left: calc((var(--card-h) - var(--card-w)) / 2);
+  margin-right: calc((var(--card-h) - var(--card-w)) / 2);
+}
+
+/* face-up: badge top-left, cost pips then level circle top-right, name centred, power bottom-right */
+.mc-badge{ position:absolute; top:4px; left:4px; }
+.mini-card .card-type-badge{ width:23px; height:23px; font-size:12px; }
+.mc-level{
+  position:absolute; top:4px; right:4px; width:23px; height:23px; border-radius:50%;
+  background: var(--paper-dim); border:1px solid var(--ink-soft); color: var(--ink);
+  font-family:var(--font-display); font-weight:800; font-size:13px;
+  display:flex; align-items:center; justify-content:center;
+}
+.mc-cost{
+  position:absolute; top:4px; right:30px; height:23px; display:flex; align-items:center;
+  font-size:8px; letter-spacing:.5px; color: var(--ink-soft);
+}
+.mc-name{
+  position:absolute; left:3px; right:3px; top:30px; bottom:20px;
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  font-weight:700; font-size:12px; line-height:1.25; word-break:break-all; overflow:hidden;
+}
+/* Sword pips for equipped cards, tucked under the power figure */
+.mc-equip{
+  position:absolute; bottom:2px; right:4px; display:flex; gap:1px; z-index:2;
+  pointer-events:none;
+}
+.mc-equip span{ font-size:13px; line-height:1; text-shadow:0 0 3px rgba(255,255,255,.9); }
+.mini-card.has-equip .mc-power{ bottom:16px; }
+
+.mc-power{
+  position:absolute; bottom:3px; right:6px;
+  font-family:var(--font-display); font-weight:800; font-size:16px;
+}
+
+/* ハイケイ is grouped at the right-hand end of the field, a little apart */
+.mini-card.is-haikei{ margin-left:22px; }
+
+.mini-card.is-selectable{ box-shadow: 0 0 0 3px var(--gold), 0 0 16px 3px var(--gold-bright); }
+.mini-card.is-selected{ box-shadow: 0 0 0 3px var(--vermilion), 0 0 16px 3px var(--vermilion-bright); }
+.mini-card.is-dimmed{ opacity:.3; cursor:default; }
+
+/* Cards respond to the mouse: one tap = detail, double tap = graveyard, drag = move */
+.mini-card:hover{ border-color: var(--gold); }
+
+
+/* ===== Modal ===== */
+.modal-overlay{
+  display:none; position:fixed; inset:0; background: rgba(10,12,18,.72);
+  align-items:center; justify-content:center; z-index:50; padding:20px;
+}
+.modal-overlay.is-open{ display:flex; }
+.modal-card{
+  background: var(--paper); color: var(--ink); border-radius:12px; padding:22px;
+  max-width:440px; width:100%; max-height:82vh; overflow-y:auto;
+  border: 3px solid var(--gold);
+}
+.modal-card h3{ font-family: var(--font-display); margin:0 0 4px; font-size:19px; }
+.modal-card .m-meta{ font-size:12px; color:var(--ink-soft); margin-bottom:10px; }
+.modal-card .m-section-label{ font-size:11px; font-weight:700; color:var(--vermilion); margin:10px 0 3px; }
+.modal-card .m-text{ font-size:13px; white-space:pre-wrap; }
+.modal-card .m-close{ margin-top:16px; }
+
+/* Enlarged card face used for the shared card detail view (deck list & solo play) */
+.modal-card.detail-face{ max-width:480px; display:flex; flex-direction:column; gap:10px; }
+/* host card + its equipment, side by side */
+.modal-overlay.with-equip{ align-items:flex-start; padding-top:6vh; }
+.detail-pair{ display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; justify-content:center; }
+.detail-equip-col{ display:flex; flex-direction:column; gap:12px; }
+.detail-equip-card{
+  background: var(--paper); color: var(--ink); border-radius:10px; padding:14px;
+  border:2px solid var(--gold); width:300px; max-height:70vh; overflow-y:auto;
+}
+.detail-equip-card .equip-tag{
+  font-size:11px; font-weight:800; color:var(--vermilion); margin-bottom:4px;
+}
+.detail-face .card-type-badge{ width:32px; height:32px; font-size:16px; }
+.detail-face .card-cost-pips{ font-size:18px; }
+.detail-face .card-name{ font-size:19px; }
+.detail-face .card-trait{ font-size:12px; margin-top:-6px; }
+.detail-face .card-rule-text{ font-size:14px; padding:12px 14px; line-height:1.6; }
+.detail-face .card-legacy{ font-size:13px; }
+.detail-face .card-power{ font-size:22px; }
+.detail-face .card-source{ font-size:12px; margin-top:2px; }
+.detail-face .m-close{ margin-top:4px; }
+.detail-face .m-context-actions{ display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+.detail-face .m-context-group{ display:flex; gap:6px; flex-wrap:wrap; }
+.detail-face .m-requirement{ font-size:11px; color: var(--vermilion); }
+
+/* ===== Solo play: transient centre message, drag ghost, drop targets ===== */
+.flash-msg{
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  background: rgba(20,16,10,.95); color: var(--paper);
+  border:2px solid var(--vermilion); border-radius:10px;
+  padding:14px 24px; font-size:15px; font-weight:700; z-index:90;
+  display:none; pointer-events:none;
+}
+.flash-msg.is-open{ display:block; }
+
+/* Card that follows the cursor while dragging (no transition — instant) */
+.drag-ghost{
+  position:fixed; z-index:85; pointer-events:none; opacity:.85;
+  box-shadow: 0 8px 22px rgba(0,0,0,.5);
+}
+/* Flight clone. Moving with `transform` keeps the animation on the compositor,
+   so it runs at the display's full frame rate instead of re-laying-out each frame. */
+/* Cards sliding to their new slot after a zone re-sorts (FLIP). */
+.mini-card.is-reflowing{ transition: transform .3s cubic-bezier(.22,.68,.28,1); }
+
+.fly-ghost{
+  position:fixed; z-index:86; pointer-events:none;
+  box-shadow: 0 10px 26px rgba(0,0,0,.55);
+  will-change: transform, opacity;
+  transition: transform .38s cubic-bezier(.22,.68,.28,1),
+              opacity .38s ease-in;
+  backface-visibility: hidden;
+}
+/* cards heading for the graveyard fade away instead of blinking out */
+.fly-ghost.is-fading{ opacity:0; }
+
+[data-dropzone].is-drop-target{
+  outline:2px dashed var(--gold-bright); outline-offset:-3px;
+  background: rgba(201,162,39,.12);
+}
+
+.grave-empty{ font-size:11px; color:#9aa1b5; padding:6px 8px; }
+
+/* Deck search / deck menu list */
+.deck-list-popover{ display:flex; flex-wrap:wrap; gap:6px; }
