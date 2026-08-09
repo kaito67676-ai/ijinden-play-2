@@ -959,8 +959,10 @@ function shuffle(arr) {
    オンラインでは常に「自分の盤面」を下に置く。
    自分の手番でない間は操作を止めるので、この2つがずれても問題は起きない。 */
 function viewSeat() {
-  if (NET.online && NET.seat !== null) return NET.seat;
-  return GAME ? GAME.active : 0;
+  let seat = (NET.online && NET.seat !== null) ? NET.seat : (GAME ? GAME.active : 0);
+  // 決着後の盤面確認では、下に出す側を切り替えられる
+  if (GAME && GAME.over && INSPECT_SWAP) seat = 1 - seat;
+  return seat;
 }
 function attachVersusAccessors(g) {
   const P = () => g.players[viewSeat()];
@@ -1006,13 +1008,35 @@ function setSideClass(el, cls) {
 }
 /* 画面全体を、いま操作しているプレイヤーの色にする。
    ブロック宣言以降は防御側が操作するので、防御側の色にする。 */
+/* カードの裏面の色は持ち主で決まる（手番では変わらない） */
+function backClassOf(idx) {
+  return (GAME.players[idx].sideKey === 'azure') ? 'back-azure' : 'back-gold';
+}
+function setBackClass(el, cls) {
+  if (!el || !el.classList) return;
+  const cur = el.classList.contains('back-gold') ? 'back-gold'
+            : el.classList.contains('back-azure') ? 'back-azure' : null;
+  if (cur === cls) return;
+  if (cur) el.classList.remove(cur);
+  if (cls) el.classList.add(cls);
+}
 function applySideTheme() {
   const body = document.body;
   const oppBoard = document.getElementById('oppBoard');
   const oppTab = document.getElementById('oppTab');
+  const boardPanel = document.getElementById('boardPanel');
   if (!GAME || GAME.mode !== 'versus') {
     [body, oppBoard, oppTab].forEach(el => setSideClass(el, null));
+    [boardPanel, oppBoard, document.getElementById('bsAtkSide'), document.getElementById('bsDefSide')]
+      .forEach(el => setBackClass(el, null));
     return;
+  }
+  // 自分の盤面のカードの裏は自分の色、相手の場は相手の色
+  setBackClass(boardPanel, backClassOf(viewSeat()));
+  setBackClass(oppBoard, backClassOf(1 - viewSeat()));
+  if (BATTLE) {
+    setBackClass(document.getElementById('bsAtkSide'), backClassOf(BATTLE.atkIdx));
+    setBackClass(document.getElementById('bsDefSide'), backClassOf(BATTLE.defIdx));
   }
   // 画面の色は「いま操作している側」。オンラインでは手番プレイヤーの色にして、
   // どちらの番かがひと目で分かるようにする。
@@ -1095,12 +1119,16 @@ function controllerSeat() {
 }
 function canAct() {
   if (!NET.online) return true;
-  if (!GAME || GAME.over) return false;
+  if (!GAME) return false;
+  if (GAME.over) return false;
   return controllerSeat() === NET.seat;
 }
+/* 決着後の盤面確認では、どちらの場も見られるように席を入れ替えられる */
+let INSPECT_SWAP = false;
 /* 自分の番でない間は盤面に触れないようにする */
 function updateNetLock() {
-  const locked = NET.online && !canAct();
+  // 決着後は両者とも盤面を見返せるようにする
+  const locked = NET.online && !!GAME && !GAME.over && !canAct();
   document.body.classList.toggle('net-locked', locked);
   const wait = document.getElementById('netWaiting');
   if (wait) {
@@ -1111,6 +1139,8 @@ function updateNetLock() {
         : `${GAME.players[GAME.active].name} のターンです（相手の操作を待っています）`;
     }
   }
+  // 相手の番の間は、相手の場を開いたままにして動きを追えるようにする
+  if (locked && document.body.classList.contains('opp-open')) renderOppBoard(true);
 }
 
 /* ---- 送信する状態 ----
@@ -1356,8 +1386,10 @@ function setOppBoardOpen(open) {
   tab.addEventListener('click', () => { if (GAME && GAME.mode === 'versus') setOppBoardOpen(true); });
   if (board && board.addEventListener) {
     board.addEventListener('mouseleave', () => {
-      // ドラッグ中・選択フロー中は閉じない
+      // ドラッグ中・選択フロー中は閉じない。
+      // 相手の番の間も開いたままにして、相手の操作を逐一見られるようにする。
       if (document.body.classList.contains('is-dragging') || FLOW) return;
+      if (NET.online && !canAct() && !(GAME && GAME.over)) return;
       setOppBoardOpen(false);
     });
   }
@@ -1430,13 +1462,14 @@ function oppMillOne() {
   if (top && top.addEventListener) {
     top.addEventListener('pointerdown', (e) => {
       if (!GAME || GAME.mode !== 'versus' || GAME.phase !== 'main' || FLOW) return;
+      if (DRAG || DECK_DRAG_PENDING) return;
       const opp = opponentP();
       if (!opp.deck.length) return;
       clearTimeout(t);
       const cardId = opp.deck[opp.deck.length - 1];
       const inst = { uid: uidCounter++, cardId, faceUp: false };
-      DECK_DRAG_PENDING = { inst, owner: opp };
-      startCardDrag(e, inst, 'oppDeckPile', top);
+      if (startCardDrag(e, inst, 'oppDeckPile', top)) DECK_DRAG_PENDING = { inst, owner: opp };
+      else uidCounter--;
     });
   }
 })();
@@ -1652,10 +1685,14 @@ function makeBattleCard(inst, ownerIdx, opts = {}) {
   if (!inst.faceUp) el.classList.add('is-facedown');
   else appendMiniCardFace(el, card, inst);
   if (inst.tapped && opts.showTapped) el.classList.add('is-tapped');
-  if (opts.selectable) el.classList.add('is-selectable');
+  // 操作できるのはその局面の担当者だけ（アタッカー選択＝攻撃側、ブロック＝防御側）
+  const mayOperate = canAct() && (opts.owner === undefined || opts.owner === controllerSeat());
+  if (opts.selectable && mayOperate) el.classList.add('is-selectable');
   if (opts.selected) el.classList.add('is-selected');
   if (opts.dimmed) el.classList.add('is-dimmed');
-  if (opts.onClick) el.addEventListener('click', opts.onClick);
+  if (opts.onClick && mayOperate) el.addEventListener('click', opts.onClick);
+  if (opts.onGrab && mayOperate) el.addEventListener('pointerdown', opts.onGrab);
+  if (!mayOperate) el.classList.add('is-locked');
   wrap.appendChild(el);
 
   if (opts.badge) {
@@ -1684,7 +1721,10 @@ function makeBattleCard(inst, ownerIdx, opts = {}) {
       b.className = 'adj-btn';
       b.textContent = txt;
       b.title = 'カード能力によるパワーの増減を反映';
-      b.addEventListener('click', (ev) => { ev.stopPropagation(); adjustPower(inst, d); setVal(); });
+      b.disabled = !mayOperate;
+      b.addEventListener('click', (ev) => {
+        ev.stopPropagation(); adjustPower(inst, d); setVal(); netSyncState();
+      });
       return b;
     };
     row.appendChild(mk('−', -500));
@@ -1746,6 +1786,7 @@ function renderBattleInner() {
         const lit = card.type === 'イジン' && inst.faceUp &&
           (inst.summonedTurn !== GAME.turn || cardHasKeyword(card, '即応'));
         atkBox.appendChild(makeBattleCard(inst, BATTLE.atkIdx, {
+          owner: BATTLE.atkIdx,             // アタッカーを選べるのは攻撃側だけ
           selectable: lit && !selected, selected, dimmed: !pickable,
           showTapped: true,
           onClick: () => {
@@ -1788,25 +1829,18 @@ function renderBattleInner() {
   }
 
   /* ---------- ブロックステップ ----------
-     防御側がブロッカーを選んでアタッカーに割り当てるだけ。
-     アタッカーが1体なら選ぶ手間もいらないので自動で割り当てる。 */
+     防御側が、ブロッカーを「防ぎたいアタッカーの前までスライド」させて割り当てる。
+     もう一度そのブロッカーを引き下げれば解除。攻撃側は操作できない。 */
   if (BATTLE.step === 'block') {
-    const single = BATTLE.attackers.length === 1;
-
     battleAttackerInsts().forEach(inst => {
       const uid = inst.uid;
-      const waiting = BATTLE.pending !== null && BATTLE.pending !== undefined;
       const wrap = makeBattleCard(inst, BATTLE.atkIdx, {
-        selectable: waiting, showTapped: true, powerRow: true,
+        owner: BATTLE.atkIdx,               // 攻撃側のカード（防御側は押せない）
+        showTapped: true, powerRow: true,
         badge: `${attackerNo(uid)}｜ブロック ${BATTLE.blocks[uid].length}/${BATTLE.required[uid]}`,
-        onClick: () => {
-          // 割り当て待ちのブロッカーがあるときだけ、行き先として反応する
-          if (!waiting) return;
-          assignBlocker(BATTLE.pending, uid);
-          BATTLE.pending = null;
-          renderBattle();
-        },
       });
+      wrap.dataset.atkUid = uid;            // スライドの受け皿
+      wrap.classList.add('bs-drop');
       // 必要ブロック数（プレッシャー）の調整
       const req = document.createElement('div');
       req.className = 'bs-req';
@@ -1814,6 +1848,7 @@ function renderBattleInner() {
         const b = document.createElement('button');
         b.className = 'adj-btn';
         b.textContent = txt;
+        b.disabled = !canAct();
         b.addEventListener('click', (ev) => {
           ev.stopPropagation();
           BATTLE.required[uid] = Math.max(1, BATTLE.required[uid] + d);
@@ -1836,34 +1871,22 @@ function renderBattleInner() {
       // ブロッカーになれるのは、起きているイジンか起きているガーディアン
       const eligible = !inst.tapped && (inst.faceUp ? card.type === 'イジン' : true);
       const cur = assignedAttackerOf(inst.uid);
-      const isPending = BATTLE.pending === inst.uid;
-      defBox.appendChild(makeBattleCard(inst, BATTLE.defIdx, {
-        selectable: eligible && cur === null && !isPending,
-        selected: cur !== null || isPending,
+      const wrap = makeBattleCard(inst, BATTLE.defIdx, {
+        owner: BATTLE.defIdx,               // 防御側のカードだけが動かせる
+        selectable: eligible, selected: cur !== null,
         dimmed: !eligible, showTapped: true, powerRow: eligible || cur !== null,
-        badge: cur !== null ? `→ アタッカー${attackerNo(cur)}` : (isPending ? 'アタッカーを選択' : null),
-        badgeBlock: true,
-        onClick: () => {
-          if (!eligible) return;
-          if (cur !== null) {                       // 割り当て解除
-            BATTLE.blocks[cur] = BATTLE.blocks[cur].filter(u => u !== inst.uid);
-            BATTLE.pending = null;
-          } else if (isPending) {
-            BATTLE.pending = null;                  // 選択を取り消す
-          } else if (single) {
-            assignBlocker(inst.uid, BATTLE.attackers[0]);   // アタッカーが1体なら即割当
-          } else {
-            BATTLE.pending = inst.uid;              // どのアタッカーを防ぐか選ぶ
-          }
-          renderBattle();
-        },
-      }));
+        badge: cur !== null ? `→ アタッカー${attackerNo(cur)}` : null, badgeBlock: true,
+        onGrab: eligible ? (ev) => startBlockerDrag(ev, inst.uid) : null,
+      });
+      wrap.dataset.blockerUid = inst.uid;
+      if (cur !== null) wrap.classList.add('is-assigned');
+      defBox.appendChild(wrap);
     });
 
     const assigned = Object.values(BATTLE.blocks).reduce((a, b) => a + b.length, 0);
-    msg.textContent = (BATTLE.pending !== null && BATTLE.pending !== undefined)
-      ? 'このブロッカーで防ぐアタッカーを選んでください（もう一度ブロッカーを押すと取り消し）'
-      : `ブロッカーにするイジン・ガーディアンを選んでください（割り当て済み ${assigned}体／もう一度押すと解除）`;
+    msg.textContent = canAct()
+      ? `ブロッカーを、防ぎたいアタッカーの前までスライドさせてください（割り当て済み ${assigned}体）\n引き下げると解除できます`
+      : '相手がブロッカーを選んでいます…';
 
     addAction('ブロック確定', () => confirmBlocks());
     addAction('スタンドでブロッカーを出す', () => openStandPicker(), { sub: true });
@@ -1918,6 +1941,94 @@ function refreshAttackStep() {
     ? `アタッカー ${BATTLE.attackers.length}体を選択中（選んだカードは寝かせます）`
     : 'アタッカーにするカードを選んでください') + (notes.length ? '\n' + notes.join('\n') : '');
   if (BATTLE._confirmBtn) BATTLE._confirmBtn.disabled = BATTLE.attackers.length === 0;
+}
+
+/* ---- ブロッカーをアタッカーの前までスライドさせて割り当てる ----
+   指やマウスでブロッカーを掴み、防ぎたいアタッカーの上で離すと確定。
+   自分の列（下段）へ引き下げて離すと解除。 */
+let BLOCK_DRAG = null;
+function startBlockerDrag(e, blockerUid) {
+  if (!BATTLE || BATTLE.step !== 'block' || !canAct()) return;
+  if (BLOCK_DRAG) return;
+  if (e.isPrimary === false) return;
+  if (e.button !== undefined && e.button !== 0) return;
+  if (e.preventDefault) e.preventDefault();
+  const el = battleCardEl(blockerUid);
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  BLOCK_DRAG = {
+    uid: blockerUid, el,
+    sx: e.clientX, sy: e.clientY,
+    ox: r.left + r.width / 2, oy: r.top + r.height / 2,
+    moved: false, target: null,
+  };
+  if (el.setPointerCapture && e.pointerId !== undefined) {
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+  }
+  window.addEventListener('pointermove', onBlockerDragMove);
+  window.addEventListener('pointerup', onBlockerDragEnd);
+  window.addEventListener('pointercancel', onBlockerDragCancel);
+}
+function blockDropTargetAt(x, y) {
+  const el = document.elementFromPoint ? document.elementFromPoint(x, y) : null;
+  const wrap = el && el.closest ? el.closest('.bs-drop') : null;
+  return wrap && wrap.dataset ? wrap.dataset.atkUid : null;
+}
+function onBlockerDragMove(e) {
+  if (!BLOCK_DRAG) return;
+  if (!BLOCK_DRAG.moved) {
+    if (Math.hypot(e.clientX - BLOCK_DRAG.sx, e.clientY - BLOCK_DRAG.sy) < 6) return;
+    BLOCK_DRAG.moved = true;
+    BLOCK_DRAG.el.classList.add('is-lifted');
+    document.body.classList.add('is-dragging');
+  }
+  // カードそのものを指に追従させる（合成のみで動くので滑らか）
+  const dx = e.clientX - BLOCK_DRAG.sx, dy = e.clientY - BLOCK_DRAG.sy;
+  BLOCK_DRAG.el.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(1.04)`;
+
+  const targetUid = blockDropTargetAt(e.clientX, e.clientY);
+  if (targetUid !== BLOCK_DRAG.target) {
+    document.querySelectorAll('.bs-drop').forEach(w => w.classList.remove('is-drop-target'));
+    if (targetUid) {
+      const w = Array.from(document.getElementById('bsAtkField').children)
+        .find(x => x.dataset && String(x.dataset.atkUid) === String(targetUid));
+      if (w) w.classList.add('is-drop-target');
+    }
+    BLOCK_DRAG.target = targetUid;
+  }
+}
+function endBlockerDrag() {
+  window.removeEventListener('pointermove', onBlockerDragMove);
+  window.removeEventListener('pointerup', onBlockerDragEnd);
+  window.removeEventListener('pointercancel', onBlockerDragCancel);
+  document.body.classList.remove('is-dragging');
+  document.querySelectorAll('.bs-drop').forEach(w => w.classList.remove('is-drop-target'));
+  if (BLOCK_DRAG && BLOCK_DRAG.el && BLOCK_DRAG.el.style) {
+    BLOCK_DRAG.el.style.transform = '';
+    BLOCK_DRAG.el.classList.remove('is-lifted');
+  }
+}
+function onBlockerDragCancel() { endBlockerDrag(); BLOCK_DRAG = null; renderBattle(); }
+function onBlockerDragEnd(e) {
+  if (!BLOCK_DRAG) return;
+  const d = BLOCK_DRAG;
+  const targetUid = d.moved ? blockDropTargetAt(e.clientX, e.clientY) : null;
+  endBlockerDrag();
+  BLOCK_DRAG = null;
+
+  const prev = assignedAttackerOf(d.uid);
+  if (targetUid !== null && targetUid !== undefined) {
+    const atkUid = BATTLE.attackers.find(u => String(u) === String(targetUid));
+    if (atkUid !== undefined) {
+      assignBlocker(d.uid, atkUid);
+      log(`${inst2name(GAME.players[BATTLE.defIdx].field.find(f => f.uid === d.uid))} を アタッカー${attackerNo(atkUid)} のブロッカーにしました`);
+    }
+  } else if (d.moved && prev !== null) {
+    // アタッカーの上ではないところで離した＝割り当てを外す
+    BATTLE.blocks[prev] = BATTLE.blocks[prev].filter(u => u !== d.uid);
+    log('ブロッカーの割り当てを外しました');
+  }
+  renderBattle();
 }
 
 /* アタッカーの通し番号（1始まり）。キーが文字列になっていても正しく引く。 */
@@ -2002,9 +2113,8 @@ function openStandPicker() {
       defP.mana = defP.mana.filter(x => x.uid !== m.uid);
       defP.field.push({ uid: m.uid, cardId: m.cardId, faceUp: true, tapped: false, summonedTurn: GAME.turn, powerMod: 0 });
       log(`スタンド：${card.name} を表にして防御側の戦場に置きました（イジン召喚権は使いません）`);
-      // アタッカーが1体ならそのまま割り当て、複数なら行き先を選んでもらう
+      // アタッカーが1体ならそのまま割り当て、複数ならスライドで指定してもらう
       if (BATTLE.attackers.length === 1) assignBlocker(m.uid, BATTLE.attackers[0]);
-      else BATTLE.pending = m.uid;
       renderBattle();
     });
     defBox.appendChild(el);
@@ -2070,7 +2180,7 @@ function flyDestroyed(doomed, done) {
     pending.n += 1;
     const g = makeGhost(d.cardId, !d.faceUp);
     g.classList.add('is-destroyed');
-    if (GAME.mode === 'versus') g.classList.add(sideClassOf(d.ownerIdx));   // 裏面は持ち主の色
+    if (GAME.mode === 'versus') g.classList.add(backClassOf(d.ownerIdx));   // 裏面は持ち主の色
     flyGhostFromTo(g, from, to, () => { pending.n -= 1; finish(); });
   });
   started = true;
@@ -2193,15 +2303,37 @@ function declareWinner(winnerIdx, reason) {
 function closeEndScreen() {
   document.getElementById('endScreen').classList.remove('is-open');
 }
+/* 新しい対戦・一手戻しなどで決着が解けたら、確認用の切り替えも畳む */
+function clearInspectMode() {
+  INSPECT_SWAP = false;
+  const btn = document.getElementById('btnInspectSwap');
+  if (btn) btn.classList.remove('is-open');
+}
 document.getElementById('btnEndToSetup').addEventListener('click', () => {
   closeEndScreen();
   leaveToSetup();
 });
 document.getElementById('btnEndInspect').addEventListener('click', () => {
   closeEndScreen();   // 盤面は残る。↩で直前まで戻すこともできる
+  INSPECT_SWAP = false;
+  const btn = document.getElementById('btnInspectSwap');
+  if (btn) btn.classList.add('is-open');
+  updateNetLock();
+  renderBoard();
+});
+/* 決着後、下に表示する側を入れ替えて両者の場を見返す */
+document.getElementById('btnInspectSwap').addEventListener('click', () => {
+  if (!GAME || !GAME.over) return;
+  INSPECT_SWAP = !INSPECT_SWAP;
+  document.getElementById('btnInspectSwap').textContent =
+    `${GAME.players[viewSeat()].name} の場を表示中（切り替える）`;
+  renderBoard();
+  renderOppBoard(true);
 });
 function leaveToSetup() {
   if (NET.online) netTeardown();
+  INSPECT_SWAP = false;
+  document.getElementById('btnInspectSwap').classList.remove('is-open');
   GAME = null; FLOW = null; UNDO_STACK = []; DRAW_PROMPT = false; BATTLE = null;
   OPP_HAND_REVEALED = false;
   hideFlowBanner();
@@ -2275,6 +2407,7 @@ function startVersusGame() {
   });
   GAME.players.forEach(dealOpening);
   GAME.players[first].turn = 1;
+  clearInspectMode();
 
   log(`対戦開始：${SIDE_NAME[side1]}（${d1}） vs ${SIDE_NAME[side2]}（${d2}）　先攻は ${GAME.players[first].name}`);
   enterBoard();
@@ -2315,6 +2448,7 @@ document.getElementById('btnUndo').addEventListener('click', () => {
   FLOW = null;
   hideFlowBanner();
   closeEndScreen();
+  clearInspectMode();
   log('一手戻しました');
   renderBoard();
 });
@@ -2997,20 +3131,42 @@ function clearDeckHalfHint() {
 }
 
 function startCardDrag(e, inst, zoneKey, el) {
-  if (!GAME || GAME.phase !== 'main' || FLOW) return;
-  if (e.button !== 0) return;
-  if (e.preventDefault) e.preventDefault();   // 文字列選択が始まるのを防ぐ
+  if (!GAME || GAME.phase !== 'main' || FLOW) return false;
+  if (DRAG) return false;                      // すでに1本つかんでいる
+  if (e.isPrimary === false) return false;     // 2本目以降の指は無視
+  if (e.button !== undefined && e.button !== 0) return false;
+  if (e.preventDefault) e.preventDefault();    // 文字列選択とスクロールの割り込みを防ぐ
   const r = el.getBoundingClientRect();
   DRAG = {
     uid: inst.uid, from: zoneKey, cardId: inst.cardId,
-    faceDown: (zoneKey === 'field' || zoneKey === 'mana') && !inst.faceUp,
+    faceDown: baseZoneKey(zoneKey) !== 'hand' && baseZoneKey(zoneKey) !== 'graveyard' && !inst.faceUp,
     sx: e.clientX, sy: e.clientY,
     offX: e.clientX - r.left, offY: e.clientY - r.top,
-    moved: false, ghost: null
+    moved: false, ghost: null, pointerId: e.pointerId,
   };
+  // 指が要素の外へ出ても、この要素にイベントが届き続けるようにする
+  if (el.setPointerCapture && e.pointerId !== undefined) {
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+  }
   document.body.classList.add('is-dragging');
   window.addEventListener('pointermove', onCardDragMove);
   window.addEventListener('pointerup', onCardDragEnd);
+  window.addEventListener('pointercancel', onCardDragCancel);
+  return true;
+}
+/* 画面外へ抜ける・別アプリに切り替わるなどで指が失われたとき。
+   後始末をしないと、掴んだままの見えないカードが残って増えたように見える。 */
+function onCardDragCancel() {
+  window.removeEventListener('pointermove', onCardDragMove);
+  window.removeEventListener('pointerup', onCardDragEnd);
+  window.removeEventListener('pointercancel', onCardDragCancel);
+  document.body.classList.remove('is-dragging');
+  if (DRAG && DRAG.ghost) DRAG.ghost.remove();
+  DRAG = null;
+  DECK_DRAG_PENDING = null;
+  document.querySelectorAll('[data-dropzone]').forEach(z => z.classList.remove('is-drop-target'));
+  clearDeckHalfHint();
+  renderBoard();
 }
 
 function onCardDragMove(e) {
@@ -3042,6 +3198,7 @@ function onCardDragEnd(e) {
   document.body.classList.remove('is-dragging');
   window.removeEventListener('pointermove', onCardDragMove);
   window.removeEventListener('pointerup', onCardDragEnd);
+  window.removeEventListener('pointercancel', onCardDragCancel);
   if (!DRAG) return;
   const d = DRAG; DRAG = null;
   document.querySelectorAll('[data-dropzone]').forEach(z => z.classList.remove('is-drop-target'));
@@ -3729,6 +3886,7 @@ const HELP_SECTIONS = [
       ['はじめかた', '対戦準備で「オンライン対戦」を選び、自分のデッキを決めます。片方が「部屋を作る」を押すと6文字の部屋コードが出るので、それを相手に伝えてください。相手は同じ画面でコードを入力して「部屋に入る」を押します。'],
       ['決めごと', '部屋を作った側が色と先攻を決めます。入った側は自動でもう一方の色になります。デッキはそれぞれの端末に保存されているものを使い、対戦開始時に相手へ渡されます（保存はされません）。'],
       ['進めかた', '自分の番の間だけ盤面を操作できます。相手の番は盤面が暗くなり、画面下に待機中の表示が出ます。操作するとその結果が自動で相手の画面にも反映されるので、特別な送信操作は要りません。'],
+      ['相手の動きを見る', '相手の番のあいだに「▲ 相手の場」を開いておくと、開いたままになり相手の操作が逐一反映されます。相手が何をしているかを追いながら待てます。'],
       ['バトル', 'アタッカーの選択は攻撃側、ブロックの割り当ては防御側と、それぞれの端末で操作します。どちらの画面でも自分の陣が下に表示されます。'],
       ['見えかた', '相手の手札は伏せて表示されます。「相手の手札を見る」で確認できますが、確認したことはログに残り相手にも伝わります。'],
       ['一手戻す', '↩は自分が操作できるときだけ使えます。相手の操作が届くと、それより前には戻せなくなります。'],
@@ -3745,13 +3903,15 @@ const HELP_SECTIONS = [
       ['相手の場の操作', '相手の場でも、ドラッグ・ダブルクリック・山札や墓地の操作がそのまま使えます。カードの効果で相手のカードを動かすときに使ってください。'],
       ['相手の手札', '相手の手札は伏せて表示されます。枚数はいつでも見えます。手札の上の「相手の手札を見る」で中身（と魔力ゾーンの裏）を確認できます。手番交代で自動的に伏せ直します。'],
       ['バトル', 'バトルボタンで専用画面が開きます。アタッカー選択 → ブロック割当 → 「ブロック確定」でルール通りにパワーを自動比較し、結果まで一気に進みます。枠の外側をクリックするとバトルを中断できます。'],
-      ['ブロックの割り当て', 'ブロック宣言以降は防御側主導なので、画面の上下が入れ替わり（上＝アタッカー／下＝ブロッカー）、画面色も防御側の色になります。ブロッカーをクリックすると割り当てられ（アタッカーが複数いるときは続けてアタッカーを選びます）、もう一度押すと解除できます。'],
+      ['ブロックの割り当て', 'ブロック宣言以降は防御側主導なので、画面の上下が入れ替わり（上＝アタッカー／下＝ブロッカー）、画面色も防御側の色になります。ブロッカーを、防ぎたいアタッカーの前までスライドさせると割り当てられます。引き下げて離すと解除です。アタッカーの選択は攻撃側、ブロックの割り当ては防御側しか操作できません。'],
+      ['カードの裏の色', 'カードの裏面は「持ち主」の色です。手番が移っても自分のカードの裏の色は変わりません。画面全体の背景の色が、いまどちらの手番かを表します。'],
       ['バトル解決', 'ブロック確定を押すと、宣言した順に自動で解決します。負けたカードは墓地へ飛ぶ演出のあとに置かれ、最後に全ペアの結果がまとめて表示されます。「閉じる」でメインフェイズに戻ります。'],
       ['防御側の手札', 'バトル中は画面下端の覗き見タブから、防御側の手札と魔力ゾーンを確認できます。手札は伏せてあり、中央の「手札を確認する」で開けます。'],
       ['パワーの増減', 'カード能力によるパワー修正は、カードの詳細画面かバトル画面の「＋／−」で500刻みで反映できます。修正込みの実効パワーが自動判定に使われます。'],
       ['プレッシャー', 'ダブルプレッシャーなどの必要ブロック数は自動で設定されます。能力で変わる場合はバトル画面の±で調整してください。必要数に満たないアタッカーが1体でもいれば、攻撃側の勝利です。'],
       ['スタンド', 'ブロックステップの「スタンドでブロッカーを出す」から、防御側の魔力ゾーンの裏のカードを表にして戦場に出せます（同色マリョクが必要。イジン召喚権は使いません）。'],
       ['勝敗', '攻撃が防がれなかったとき、またはターン開始時に山札が0枚のとき、自動で勝敗が決まり終了画面が出ます。カード効果による勝利は「終了」ボタンから宣言できます。'],
+      ['決着後の確認', '終了画面の「盤面を確認する」を押すと盤面を見返せます。画面下の「場を切り替える」で、どちらの側を下に表示するか入れ替えられます。'],
       ['一手戻す', '↩は手番をまたいで戻せます。直前の相手の操作も取り消せます。'],
     ]
   },
@@ -3849,12 +4009,14 @@ document.getElementById('btnHelp').addEventListener('click', openHelp);
   if (topCard) {
     topCard.addEventListener('pointerdown', (e) => {
       if (!GAME || GAME.phase !== 'main' || FLOW || !GAME.deck.length) return;
+      if (DRAG || DECK_DRAG_PENDING) return;
       clearTimeout(deckTapTimer);
       const cardId = GAME.deck[GAME.deck.length - 1];
-      // 山札から引き抜いた1枚を、一時的な実体としてドラッグする
+      // 山札から引き抜いた1枚を、一時的な実体としてドラッグする。
+      // ドラッグが始められたときだけ作る（作ってから失敗すると行き場を失うため）
       const inst = { uid: uidCounter++, cardId, faceUp: false };
-      DECK_DRAG_PENDING = { inst, owner: GAME };
-      startCardDrag(e, inst, 'deckPile', topCard);
+      if (startCardDrag(e, inst, 'deckPile', topCard)) DECK_DRAG_PENDING = { inst, owner: GAME };
+      else uidCounter--;
     });
   }
 

@@ -721,10 +721,6 @@ body.opp-open .opp-board{ transform: translateY(0); }
   --side-mark: #e6c869;
   --opp-veil: rgba(13,15,21,.97);
   --head-grad: linear-gradient(180deg, #171d29 0%, #12151d 100%);
-  /* カードの裏＝陣営カラー（金） */
-  --back-a: #3a2d10;
-  --back-b: #8a6d1f;
-  --back-line: #bd9a34;
 }
 .side-azure{
   --bg-deep: #373c46;
@@ -736,10 +732,12 @@ body.opp-open .opp-board{ transform: translateY(0); }
   --side-mark: #cbe9ff;
   --opp-veil: rgba(55,60,70,.97);
   --head-grad: linear-gradient(180deg, #4d5563 0%, #373c46 100%);
-  --back-a: #18354d;
-  --back-b: #2f76a8;
-  --back-line: #63a9d6;
 }
+
+/* カードの裏面の色は「持ち主」で決まる。手番が移っても自分のカードの裏は変わらない。
+   陣営パレット（.side-*）とは独立させ、盤面ごとに付け替える。 */
+.back-gold{  --back-a: #3a2d10; --back-b: #8a6d1f; --back-line: #bd9a34; }
+.back-azure{ --back-a: #18354d; --back-b: #2f76a8; --back-line: #63a9d6; }
 body.side-gold, body.side-azure{ background: var(--bg-deep); }
 body.side-gold .app-header, body.side-azure .app-header{ background: var(--head-grad); }
 /* 準備画面の色チップ */
@@ -837,3 +835,39 @@ body.net-locked .opp-tab{ pointer-events:none; filter:saturate(.7) brightness(.8
   -webkit-user-select:none; user-select:none;
 }
 .net-waiting.is-open{ display:block; }
+
+/* タッチ操作：ブラウザ側のスクロールや長押し選択が割り込むと、
+   ポインタが取り消されてカードを掴んだままになる（増えたように見える）。
+   触る要素では既定のジェスチャーを止める。 */
+.mini-card, .slot-frame, .zone-box, .bs-card,
+.deck-slot, #deckTopCard, #oppDeckTopCard{
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none; user-select: none;
+}
+
+/* 決着後の盤面確認：下に出す側を入れ替える */
+.inspect-swap{
+  display:none; position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:61;
+  background: var(--bg-panel-raise); border:1px solid var(--gold); color: var(--gold-bright);
+  border-radius:999px; font-size:12.5px; font-weight:700; padding:8px 20px; cursor:pointer;
+  -webkit-user-select:none; user-select:none;
+}
+.inspect-swap.is-open{ display:block; }
+.inspect-swap:hover{ background: var(--gold); color:#1a1508; }
+
+/* ブロッカーのスライド割り当て */
+.bs-card.bs-drop{ border-radius:10px; transition: box-shadow .15s ease, transform .15s ease; }
+.bs-card.bs-drop.is-drop-target{
+  box-shadow: 0 0 0 2px var(--gold-bright), 0 0 18px rgba(230,200,105,.5);
+  transform: translateY(3px);
+}
+.bs-card .mini-card.is-lifted{
+  z-index:20; position:relative; cursor:grabbing;
+  box-shadow: 0 14px 30px rgba(0,0,0,.6);
+  transition:none;
+}
+.bs-card.is-assigned .mini-card{ outline:2px solid #2f6fb3; }
+/* 操作できない側のカードは触れない */
+.bs-card .mini-card.is-locked{ cursor:default; }
+.bs-cards .mini-card.is-selectable{ cursor:grab; }
