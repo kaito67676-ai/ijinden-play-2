@@ -45,6 +45,15 @@ TYPE_OVERRIDES = {
     '2nd-52': 'ハイケイ',   # ガレオン船
     '2nd-54': 'ハイケイ',   # 蒸気機関車
     '3rd-60': 'ハイケイ',   # 黒船
+
+    # 元データに魔力コストの表記（「魔力コスト n」や□）が抜けていて
+    # ハイケイと誤推定されていたマホウ
+    '4th-53': 'マホウ',     # フール：レベル0・魔力コスト0のマホウ
+}
+
+# マホウへ上書きしたカードの魔力コスト   id -> コスト
+MAGIC_COST_OVERRIDES = {
+    '4th-53': 0,           # フール
 }
 
 # レアリティの上書き   id -> レアリティ
@@ -170,7 +179,10 @@ def build():
         if cid in TYPE_OVERRIDES and c['type'] != TYPE_OVERRIDES[cid]:
             applied['type'].append(f"{cid} {c['name']}: {c['type']} -> {TYPE_OVERRIDES[cid]}")
             c['type'] = TYPE_OVERRIDES[cid]
-            c.pop('magic_cost', None)
+            if c['type'] == 'マホウ':
+                c['magic_cost'] = MAGIC_COST_OVERRIDES.get(cid, 0)
+            else:
+                c.pop('magic_cost', None)
         if cid in RARITY_OVERRIDES and c['rarity'] != RARITY_OVERRIDES[cid]:
             applied['rarity'].append(f"{cid} {c['name']}: {c['rarity']!r} -> {RARITY_OVERRIDES[cid]}")
             c['rarity'] = RARITY_OVERRIDES[cid]

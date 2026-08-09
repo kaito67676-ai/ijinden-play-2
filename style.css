@@ -25,6 +25,15 @@
   --font-body: "Zen Kaku Gothic New", sans-serif;
 
   --radius: 10px;
+
+  /* 陣営カラーの既定値（1人回しではこちら＝金・黒基調） */
+  --side-mark: #e6c869;
+  --opp-veil: rgba(13,15,21,.97);
+  --head-grad: linear-gradient(180deg, #171d29 0%, #12151d 100%);
+  /* カードの裏（1人回しは従来の紫） */
+  --back-a: #2b2540;
+  --back-b: #46396e;
+  --back-line: #5c4b8f;
 }
 
 *{ box-sizing: border-box; }
@@ -418,10 +427,10 @@ body.is-staged .turn-controls{ position:relative; z-index:61; }
   border-radius:7px; padding:4px; font-size:11px; position:relative; cursor:pointer;
   border:2px solid transparent; flex-shrink:0; overflow:hidden;
 }
-/* Card back: plain, no symbol or text */
+/* Card back: plain, no symbol or text. 対戦では陣営カラーを使う。 */
 .mini-card.is-facedown{
-  background: linear-gradient(135deg, #2b2540 0%, #46396e 50%, #2b2540 100%);
-  border-color:#5c4b8f;
+  background: linear-gradient(135deg, var(--back-a) 0%, var(--back-b) 50%, var(--back-a) 100%);
+  border-color: var(--back-line);
 }
 /* Rotated 90°: the layout box stays upright, so reserve the extra width
    ((card-h - card-w) / 2 on each side) to stop it covering its neighbours. */
@@ -530,8 +539,10 @@ body.is-staged .turn-controls{ position:relative; z-index:61; }
 
 /* Card that follows the cursor while dragging (no transition — instant) */
 .drag-ghost{
-  position:fixed; z-index:85; pointer-events:none; opacity:.85;
+  /* transform で動かすので、基準位置は 0,0 に固定して合成だけで追従させる */
+  position:fixed; top:0; left:0; z-index:85; pointer-events:none; opacity:.85;
   box-shadow: 0 8px 22px rgba(0,0,0,.5);
+  will-change: transform;
 }
 /* Flight clone. Moving with `transform` keeps the animation on the compositor,
    so it runs at the display's full frame rate instead of re-laying-out each frame. */
@@ -558,3 +569,271 @@ body.is-staged .turn-controls{ position:relative; z-index:61; }
 
 /* Deck search / deck menu list */
 .deck-list-popover{ display:flex; flex-wrap:wrap; gap:6px; }
+
+/* ============================================================
+   VERSUS MODE (2人対戦)
+   ============================================================ */
+
+/* --- opponent board: top hover tab, slides down over the own board --- */
+.opp-tab{
+  position:fixed; top:0; left:50%; transform:translateX(-50%); z-index:56;
+  background: var(--bg-panel-raise); border:1px solid var(--line); border-top:none;
+  border-radius:0 0 10px 10px; color: var(--paper); cursor:pointer;
+  padding:5px 22px; font-size:12px; font-weight:700;
+}
+.opp-tab:hover{ border-color: var(--gold); color: var(--gold-bright); }
+.opp-board{
+  position:fixed; top:0; left:0; right:0; z-index:55;
+  transform: translateY(-100%); transition: transform .2s ease;
+  background: var(--opp-veil); border-bottom:2px solid var(--gold);
+  box-shadow: 0 12px 34px rgba(0,0,0,.6); max-height:92vh; overflow-y:auto;
+}
+body.opp-open .opp-board{ transform: translateY(0); }
+.opp-board-inner{ max-width:1160px; margin:0 auto; padding:10px 16px 14px; }
+.opp-board-head{
+  display:flex; align-items:center; gap:10px; margin-bottom:8px;
+  font-family:var(--font-display); font-weight:800; color: var(--gold-bright); font-size:14px;
+}
+.opp-board-head .btn-mini{ padding:7px 12px; font-size:12px; }
+
+/* --- turn hand-off splash --- */
+.turn-splash{
+  display:none; position:fixed; inset:0; z-index:88;
+  background: rgba(8,10,14,.82);
+  flex-direction:column; align-items:center; justify-content:center; gap:6px;
+  cursor:pointer;
+}
+.turn-splash.is-open{ display:flex; }
+.turn-splash-name{
+  font-family:var(--font-display); font-weight:800; font-size:44px; color: var(--gold-bright);
+  text-shadow: 0 0 24px rgba(230,200,105,.45);
+}
+.turn-splash-sub{ font-size:16px; color: var(--paper); }
+
+/* --- battle screen --- */
+.battle-screen{
+  display:none; position:fixed; inset:0; z-index:70;
+  background: rgba(8,10,14,.38);            /* 他の画面と同じ薄さ */
+  align-items:center; justify-content:center;
+  cursor:pointer;                            /* 枠外クリックで中断 */
+}
+.bs-frame{ cursor:default; }
+.battle-screen.is-open{ display:flex; }
+.bs-frame{
+  width:min(1080px, 94vw); max-height:92vh; overflow-y:auto;
+  background: var(--bg-panel); border:2px solid var(--gold); border-radius:14px;
+  padding:14px 18px; display:flex; flex-direction:column; gap:10px;
+}
+.bs-head{ display:flex; align-items:center; gap:12px; }
+.bs-title{ font-family:var(--font-display); font-weight:800; font-size:18px; color:var(--gold-bright); }
+.bs-step{ font-size:13px; color:#9aa1b5; flex:1; }
+.bs-side{ display:flex; flex-direction:column; gap:4px; }
+.bs-side-label{ font-size:11px; color:#9aa1b5; font-family:var(--font-display); }
+.bs-cards{
+  display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap;
+  min-height: calc(var(--card-h) + 30px);
+  background: rgba(255,255,255,.02); border:1px dashed var(--line); border-radius:10px; padding:8px;
+}
+.bs-msg{
+  text-align:center; font-size:14.5px; font-weight:700; color: var(--gold-bright);
+  white-space:pre-line; min-height:1.4em; line-height:1.5;
+}
+.bs-actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+
+/* battle card wrapper: card + its meters/badges
+   幅を「カードの高さ」ぶん確保しておくと、寝かせて90°回しても
+   隣のカードが動かないので、回転が滑らかに見える。 */
+.bs-card{
+  display:flex; flex-direction:column; align-items:center; gap:3px; position:relative;
+  width: var(--card-h);
+}
+.bs-cards .mini-card.is-tapped{ margin-left:0; margin-right:0; }
+.bs-badge{
+  position:absolute; top:-7px; left:50%; transform:translateX(-50%); z-index:4;
+  background: var(--vermilion); color:#fff; font-size:10px; font-weight:800;
+  border-radius:999px; padding:2px 8px; white-space:nowrap; pointer-events:none;
+}
+.bs-badge.is-block{ background:#2f6fb3; }
+.bs-req{ display:flex; align-items:center; gap:4px; font-size:10.5px; color:#9aa1b5; }
+.bs-pow{ display:flex; align-items:center; gap:4px; }
+.bs-pow .adj-btn{ width:18px; height:18px; font-size:10px; }
+.bs-pow-val{ font-family:var(--font-display); font-weight:800; font-size:13px; min-width:44px; text-align:center; }
+
+/* peek strips around the battle frame */
+.bs-peek{ position:fixed; left:50%; transform:translateX(-50%); z-index:72; width:min(1080px,94vw); }
+.bs-peek-top{ top:0; }
+.bs-peek-bottom{ bottom:0; }
+.bs-peek-tab{
+  background: var(--bg-panel-raise); border:1px solid var(--line); color:#9aa1b5;
+  font-size:11px; padding:3px 14px; width:max-content; margin:0 auto; cursor:default;
+}
+.bs-peek-top .bs-peek-tab{ border-top:none; border-radius:0 0 8px 8px; }
+.bs-peek-bottom .bs-peek-tab{ border-bottom:none; border-radius:8px 8px 0 0; }
+.bs-peek-body{
+  display:none; background: var(--bg-panel); border:1px solid var(--gold); border-radius:10px;
+  padding:8px; max-height:40vh; overflow-y:auto;
+}
+.bs-peek:hover .bs-peek-body{ display:block; }
+.bs-peek .cards-row{ flex-wrap:wrap; }
+.bs-peek-cols{ display:flex; gap:14px; }
+.bs-peek-cols > div{ flex:1; min-width:0; }
+.bs-peek-label{ font-size:10.5px; color:#9aa1b5; margin-bottom:4px; }
+/* peeked cards are for viewing only */
+.bs-peek .mini-card{ cursor:default; }
+
+/* --- end screen --- */
+.end-screen{
+  display:none; position:fixed; inset:0; z-index:95;
+  background: rgba(8,10,14,.85);
+  align-items:center; justify-content:center;
+}
+.end-screen.is-open{ display:flex; }
+.end-card{
+  background: var(--bg-panel); border:3px double var(--gold); border-radius:16px;
+  padding:34px 46px; text-align:center; display:flex; flex-direction:column; gap:10px; align-items:center;
+}
+.end-trophy{ font-size:44px; }
+.end-winner{ font-family:var(--font-display); font-weight:800; font-size:30px; color: var(--gold-bright); }
+.end-reason{ font-size:13.5px; color:#9aa1b5; white-space:pre-line; line-height:1.6; }
+.end-actions{ display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; justify-content:center; }
+
+/* effective power colouring */
+.mc-power.is-buffed{ color:#3f9b52 !important; }
+.mc-power.is-debuffed{ color:#c0392b !important; }
+
+/* power adjust row in the detail view */
+.pow-adjust{ display:flex; align-items:center; gap:6px; justify-content:center; margin-top:4px; }
+.pow-adjust .adj-btn{ width:24px; height:24px; }
+.pow-adjust-label{ font-size:12px; color:var(--ink-soft); }
+
+/* ============================================================
+   陣営カラー（手番がひと目で分かるように画面全体を切り替える）
+   金＝黒基調（従来）／蒼＝グレー基調。
+   body に付けると画面全体、要素に付けるとその範囲だけ切り替わる。
+   ============================================================ */
+.side-gold{
+  --bg-deep: #12151d;
+  --bg-panel: #1b212e;
+  --bg-panel-raise: #232a3a;
+  --line: #333c50;
+  --gold: #c9a227;
+  --gold-bright: #e6c869;
+  --side-mark: #e6c869;
+  --opp-veil: rgba(13,15,21,.97);
+  --head-grad: linear-gradient(180deg, #171d29 0%, #12151d 100%);
+  /* カードの裏＝陣営カラー（金） */
+  --back-a: #3a2d10;
+  --back-b: #8a6d1f;
+  --back-line: #bd9a34;
+}
+.side-azure{
+  --bg-deep: #373c46;
+  --bg-panel: #464d5a;
+  --bg-panel-raise: #565f6f;
+  --line: #7d8697;
+  --gold: #6ba6d6;
+  --gold-bright: #cbe9ff;
+  --side-mark: #cbe9ff;
+  --opp-veil: rgba(55,60,70,.97);
+  --head-grad: linear-gradient(180deg, #4d5563 0%, #373c46 100%);
+  --back-a: #18354d;
+  --back-b: #2f76a8;
+  --back-line: #63a9d6;
+}
+body.side-gold, body.side-azure{ background: var(--bg-deep); }
+body.side-gold .app-header, body.side-azure .app-header{ background: var(--head-grad); }
+/* 準備画面の色チップ */
+.side-chip-gold.is-active{ background:#c9a227; border-color:#e6c869; color:#1a1508; }
+.side-chip-azure.is-active{ background:#6ba6d6; border-color:#cbe9ff; color:#0e1a22; }
+
+/* ============================================================
+   相手の場：卓の向かい側に座っている配置（上下・左右を反転）
+   文字はそのまま読めるように、並び順だけを反転させる。
+   ============================================================ */
+/* 段の順・段の中の並び・カードの並びをすべて反転させる */
+.opp-board .board-rows{ flex-direction: column-reverse; }
+.opp-board .board-row{ flex-direction: row-reverse; align-items: flex-start; }
+.opp-board .cards-row{ flex-direction: row-reverse; }
+/* 枠内の要素も上下反転（山札の⋯ボタンはカードの上へ） */
+.opp-board .zone-box{ flex-direction: column-reverse; padding:8px 10px 16px; }
+/* 見出し・枚数・要約は反転した位置へ。ただし文字は回転させないので読める */
+.opp-board .zone-caption{ top:auto; bottom:3px; left:auto; right:10px; }
+.opp-board .mana-summary-inline{ top:auto; bottom:3px; left:10px; right:auto; }
+.opp-board .slot-count{ bottom:auto; top:-5px; right:auto; left:-5px; }
+.opp-board .grave-history-popover{ top:auto; bottom:100%; left:auto; right:0; margin:0 0 6px; }
+/* 相手の山札へのドロップも、上半分／下半分でそのまま行き先が決まる */
+#oppDeckSlot.half-top .slot-frame{ box-shadow: 0 -4px 0 0 var(--gold-bright) inset, 0 0 12px rgba(230,200,105,.5); }
+#oppDeckSlot.half-bottom .slot-frame{ box-shadow: 0 4px 0 0 var(--gold-bright) inset, 0 0 12px rgba(230,200,105,.5); }
+#oppDeckSlot.half-top::after,
+#oppDeckSlot.half-bottom::after{
+  content:'相手の山札の上へ'; position:absolute; left:50%; transform:translateX(-50%);
+  background: var(--gold); color:#1a1508; font-size:10px; font-weight:800;
+  padding:2px 8px; border-radius:4px; white-space:nowrap; z-index:5; pointer-events:none;
+}
+#oppDeckSlot.half-top::after{ top:-8px; }
+#oppDeckSlot.half-bottom::after{ content:'相手の山札の下へ'; bottom:-8px; }
+#oppDeckSlot .slot-frame, #oppGraveSlot{ cursor:pointer; }
+/* 相手の手札を見るボタン（相手の手札の上） */
+.btn-reveal-hand{ align-self:flex-end; margin-bottom:4px; font-size:11.5px; padding:5px 12px; }
+
+/* ============================================================
+   バトル画面の追加分
+   ============================================================ */
+.bs-abort-hint{ font-size:11px; color:#8a90a3; }
+/* ブロックステップは防御側が操作するので、上下を入れ替える
+   （上＝アタッカー／下＝ブロッカー） */
+.bs-frame.is-flipped #bsAtkSide{ order:1; }
+.bs-frame.is-flipped .bs-msg{ order:2; }
+.bs-frame.is-flipped #bsDefSide{ order:3; }
+.bs-frame.is-flipped .bs-actions{ order:4; }
+/* 各陣の見出しは、その陣の色で */
+.bs-side-label{ color: var(--side-mark); }
+/* 覗き見ストリップ：手札を伏せた上に確認ボタンを重ねる */
+.bs-peek-hand-wrap{ position:relative; }
+.bs-peek-reveal{
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:3;
+  background: var(--bg-panel-raise); border:1px solid var(--gold); color: var(--gold-bright);
+  border-radius:8px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer;
+  white-space:nowrap; box-shadow:0 6px 18px rgba(0,0,0,.5);
+}
+.bs-peek-reveal:hover{ background: var(--gold); color:#1a1508; }
+/* 破壊されたカードが墓地へ向かうときの演出 */
+.fly-ghost.is-destroyed{
+  transition: transform .52s cubic-bezier(.3,.5,.3,1), opacity .52s ease-in;
+  /* 大きなぼかしは毎フレームの描画が重いので控えめにする */
+  box-shadow: 0 0 10px rgba(217,88,63,.6);
+  outline:2px solid var(--vermilion-bright);
+  will-change: transform, opacity;
+}
+
+/* バトル画面や相手の場では、文字を誤って選択しないようにする */
+.battle-screen, .opp-board, .turn-splash, .end-screen, .bs-peek, .opp-tab{
+  -webkit-user-select:none; user-select:none;
+}
+
+/* ============================================================
+   オンライン対戦
+   ============================================================ */
+.net-actions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.net-actions input{ width:130px; text-transform:uppercase; letter-spacing:.16em; }
+.net-or{ font-size:12px; color:#9aa1b5; }
+.net-status{
+  display:none; position:fixed; top:0; left:50%; transform:translateX(-50%); z-index:92;
+  background: var(--bg-panel-raise); border:1px solid var(--gold); border-top:none;
+  border-radius:0 0 10px 10px; color: var(--gold-bright);
+  font-size:12px; font-weight:700; padding:5px 18px; white-space:nowrap;
+  -webkit-user-select:none; user-select:none;
+}
+.net-status.is-open{ display:block; }
+.net-status.is-bad{ border-color: var(--vermilion); color: var(--vermilion-bright); }
+/* 自分の番でない間は盤面に触れない */
+body.net-locked .board-rows,
+body.net-locked .action-bar,
+body.net-locked .opp-tab{ pointer-events:none; filter:saturate(.7) brightness(.82); }
+.net-waiting{
+  display:none; position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:60;
+  background: rgba(13,15,21,.92); border:1px solid var(--line); border-radius:999px;
+  color: var(--paper); font-size:12.5px; padding:8px 20px; pointer-events:none;
+  -webkit-user-select:none; user-select:none;
+}
+.net-waiting.is-open{ display:block; }

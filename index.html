@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 <body>
 
@@ -124,17 +125,71 @@
     <div class="panel setup-panel" id="setupPanel">
       <h2 class="panel-title">対戦準備</h2>
       <div class="field">
-        <label>使用するデッキ</label>
-        <select id="soloDeckSelect"></select>
+        <label>モード</label>
+        <div class="chip-group" id="fMode">
+          <button class="chip-toggle is-active" data-val="solo">1人回し</button>
+          <button class="chip-toggle" data-val="versus">2人対戦</button>
+          <button class="chip-toggle" data-val="online">オンライン対戦</button>
+        </div>
       </div>
       <div class="field">
+        <label id="deck1Label">使用するデッキ</label>
+        <select id="soloDeckSelect"></select>
+      </div>
+      <div class="field vs-only" style="display:none;">
+        <label>プレイヤー2のデッキ</label>
+        <select id="soloDeckSelect2"></select>
+      </div>
+      <div class="field vs-only" style="display:none;">
+        <label>プレイヤー1の色（相手は自動でもう一方の色になります）</label>
+        <div class="chip-group" id="fSide1">
+          <button class="chip-toggle is-active side-chip side-chip-gold" data-val="gold">金</button>
+          <button class="chip-toggle side-chip side-chip-azure" data-val="azure">蒼</button>
+        </div>
+      </div>
+      <div class="field solo-only">
         <label>先攻 / 後攻</label>
         <div class="chip-group" id="fFirst">
           <button class="chip-toggle is-active" data-val="first">先攻</button>
           <button class="chip-toggle" data-val="second">後攻</button>
         </div>
       </div>
-      <button class="btn btn-primary btn-block" id="btnStartGame">対戦開始（シャッフルして準備）</button>
+      <div class="field vs-only" style="display:none;">
+        <label>先攻プレイヤー</label>
+        <div class="chip-group" id="fFirstVs">
+          <button class="chip-toggle is-active" data-val="0" id="fFirstVs1">金</button>
+          <button class="chip-toggle" data-val="1" id="fFirstVs2">蒼</button>
+        </div>
+      </div>
+      <div class="field online-only" style="display:none;">
+        <label>自分のデッキ</label>
+        <select id="onlineDeckSelect"></select>
+      </div>
+      <div class="field online-only" style="display:none;">
+        <label>自分の色（部屋を作る場合のみ有効／相手は自動でもう一方）</label>
+        <div class="chip-group" id="fSideOnline">
+          <button class="chip-toggle is-active side-chip side-chip-gold" data-val="gold">金</button>
+          <button class="chip-toggle side-chip side-chip-azure" data-val="azure">蒼</button>
+        </div>
+      </div>
+      <div class="field online-only" style="display:none;">
+        <label>先攻（部屋を作る場合のみ有効）</label>
+        <div class="chip-group" id="fFirstOnline">
+          <button class="chip-toggle is-active" data-val="0">自分</button>
+          <button class="chip-toggle" data-val="1">相手</button>
+        </div>
+      </div>
+      <div class="field online-only" style="display:none;">
+        <div class="net-actions">
+          <button class="btn btn-primary" id="btnNetHost">部屋を作る</button>
+          <span class="net-or">または</span>
+          <input type="text" id="netRoomInput" placeholder="部屋コード" maxlength="8" autocapitalize="characters">
+          <button class="btn btn-ghost" id="btnNetJoin">部屋に入る</button>
+        </div>
+        <p class="hint-text" id="netRoomHint"></p>
+        <p class="hint-text">端末どうしが直接つながります。相手の端末には、こちらの手札や山札の順番も届いています（画面には出ません）。友人との対戦を想定した作りです。</p>
+      </div>
+      <button class="btn btn-primary btn-block solo-vs-only" id="btnStartGame">対戦開始（シャッフルして準備）</button>
       <p class="hint-text">山札をシャッフルし、手札6枚とガーディアン4枚を自動で準備します。カードの効果適用はご自身でルールテキストを確認しながら手動で行ってください。</p>
     </div>
 
@@ -233,6 +288,107 @@
   </section>
 
 </main>
+
+<!-- ===== Versus: opponent board (top hover tab, overlays own board) ===== -->
+<button class="opp-tab" id="oppTab" style="display:none;">&#9650; <span id="oppTabName">相手</span> の場</button>
+<div class="opp-board" id="oppBoard">
+  <div class="opp-board-inner">
+    <div class="opp-board-head">
+      <span id="oppBoardTitle">相手の場</span>
+    </div>
+    <div class="board-rows">
+      <div class="board-row">
+        <div class="zone-box zone-slot" id="oppDeckSlot">
+          <span class="zone-caption">相手の山札</span>
+          <div class="slot-frame">
+            <div class="mini-card is-facedown" id="oppDeckTopCard"></div>
+            <span class="slot-count" id="oppDeckCount">0</span>
+          </div>
+          <button class="btn-slot-sub" id="btnOppDeckMenu" title="相手の山札の操作">&#8943;</button>
+        </div>
+        <div class="zone-box zone-spread">
+          <span class="zone-caption">相手の戦場</span>
+          <div class="cards-row" id="oppZoneField"></div>
+        </div>
+      </div>
+      <div class="board-row">
+        <div class="zone-box zone-slot" id="oppGraveSlot">
+          <span class="zone-caption">相手の墓地</span>
+          <div class="slot-frame is-empty">
+            <span class="slot-empty-label">墓地</span>
+            <span class="slot-count" id="oppGraveCount">0</span>
+          </div>
+          <div class="grave-history-popover" id="oppGravePopover"></div>
+        </div>
+        <div class="zone-box zone-spread">
+          <span class="zone-caption">相手の魔力ゾーン</span>
+          <span class="mana-summary-inline" id="oppManaSummary"></span>
+          <div class="cards-row" id="oppZoneMana"></div>
+        </div>
+      </div>
+      <div class="board-row">
+        <div class="zone-box zone-spread">
+          <span class="zone-caption">相手の手札</span>
+          <button class="btn-mini btn-reveal-hand" id="btnOppReveal"
+                  title="相手の手札と、魔力ゾーンの裏向きカードを表示します">相手の手札を見る</button>
+          <div class="cards-row" id="oppZoneHand"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Online: connection status & waiting ===== -->
+<div class="net-status" id="netStatus"></div>
+<div class="net-waiting" id="netWaiting"></div>
+
+<!-- ===== Versus: turn hand-off splash ===== -->
+<div class="turn-splash" id="turnSplash">
+  <div class="turn-splash-name" id="turnSplashName"></div>
+  <div class="turn-splash-sub">のターンです</div>
+</div>
+
+<!-- ===== Versus: battle screen ===== -->
+<div class="battle-screen" id="battleScreen">
+  <div class="bs-frame" id="bsFrame">
+    <div class="bs-head">
+      <span class="bs-title">バトル</span>
+      <span class="bs-step" id="bsStep"></span>
+      <span class="bs-abort-hint">枠の外側をクリックするとバトルを中断します</span>
+    </div>
+    <div class="bs-side" id="bsDefSide">
+      <div class="bs-side-label" id="bsDefLabel">防御側</div>
+      <div class="bs-cards" id="bsDefField"></div>
+    </div>
+    <div class="bs-msg" id="bsMsg"></div>
+    <div class="bs-side" id="bsAtkSide">
+      <div class="bs-cards" id="bsAtkField"></div>
+      <div class="bs-side-label" id="bsAtkLabel">攻撃側</div>
+    </div>
+    <div class="bs-actions" id="bsActions"></div>
+  </div>
+  <div class="bs-peek bs-peek-top" id="bsPeekTop">
+    <div class="bs-peek-tab" id="bsPeekTopTab">▼</div>
+    <div class="bs-peek-body" id="bsPeekTopBody"></div>
+  </div>
+  <div class="bs-peek bs-peek-bottom" id="bsPeekBottom">
+    <div class="bs-peek-body" id="bsPeekBottomBody"></div>
+    <div class="bs-peek-tab" id="bsPeekBottomTab">▲</div>
+  </div>
+</div>
+
+<!-- ===== Versus: end screen ===== -->
+<div class="end-screen" id="endScreen">
+  <div class="end-card">
+    <div class="end-trophy">&#127942;</div>
+    <div class="end-winner" id="endWinner"></div>
+    <div class="end-reason" id="endReason"></div>
+    <div class="end-actions">
+      <button class="btn btn-primary" id="btnEndToSetup">対戦を終了（準備画面へ）</button>
+      <button class="btn btn-ghost" id="btnEndInspect">盤面を確認する</button>
+    </div>
+  </div>
+</div>
 
 <!-- Centre-screen prompt used for every guided step (dims the rest of the board) -->
 <div class="stage-dim" id="stageDim"></div>
